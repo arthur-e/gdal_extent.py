@@ -1,11 +1,34 @@
 '''
 A command-line utility for getting the extent (bounds) of any raster as
-Well-Known Text (WKT), GeoJSON, or other vector formats.
+Well-Known Text (WKT), GeoJSON, or other vector formats. Can be called from
+the command line with a raster in a GDAL-supported format to produce a GeoJSON
+Polygon string:
+
+python gdal_extent.py path/to/some/raster.tiff
 '''
 
 import json
 import sys
 from osgeo import gdal, ogr
+
+def get_min_max_extent(rast, as_string=False):
+    '''
+    Returns the minimum and maximum coordinate values in the sequence expected
+    by, e.g., the `-te` switch in various GDAL utiltiies:
+    (xmin, ymin, xmax, ymax).
+    '''
+    gt = rast.GetGeoTransform()
+    xsize = rast.RasterXSize # Size in the x-direction
+    ysize = rast.RasterYSize # Size in the y-direction
+    xr = abs(gt[1]) # Resolution in the x-direction
+    yr = abs(gt[-1]) # Resolution in the y-direction
+    ext = [gt[0], gt[3] - (ysize * yr), gt[0] + (xsize * xr), gt[3]]
+
+    if as_string:
+        return ' '.join(map(str, ext))
+
+    return ext
+
 
 def get_rect_extent_as_sequence(rast):
     '''
@@ -14,15 +37,10 @@ def get_rect_extent_as_sequence(rast):
     and moving clockwise.
     '''
     gt = rast.GetGeoTransform()
-    xsize = ds.RasterXSize # Size in the x-direction
-    ysize = ds.RasterYSize # Size in the y-direction
-    xr = abs(gt[1]) # Resolution in the x-direction
-    yr = abs(gt[-1]) # Resolution in the y-direction
-    ext = [(gt[0], gt[3])] # Get the top-left corner coordinates
-    ext.append((gt[0] + (xsize * xr), gt[3])) # Top-right
-    ext.append((gt[0] + (xsize * xr), gt[3] - (ysize * yr))) # Bottom-right
-    ext.append((gt[0], gt[3] - (ysize * yr))) # Bottom-left
-    return ext
+    c = get_min_max_extent(rast)
+    # Top-left, top-right, bottom-right, bottom-left
+    return [(c[0], c[3]), (c[2], c[3]), (c[2], c[1]), (c[0], c[1])]
+
 
 if __name__ == '__main__':
     ds = gdal.Open(sys.argv[1])
