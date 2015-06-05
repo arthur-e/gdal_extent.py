@@ -55,8 +55,18 @@ def get_rect_extent_as_sequence(rast):
     return [(c[0], c[3]), (c[2], c[3]), (c[2], c[1]), (c[0], c[1])]
 
 
+def get_width_height(rast, as_string=False):
+    '''
+    Returns the width and height of the raster, optionally as a string.
+    '''
+    if as_string:
+        return ' '.join(map(str, (rast.RasterXSize, rast.RasterYSize)))
+
+    return (rast.RasterXSize, rast.RasterYSize)
+
+
 def display_usage():
-    print('Usage: gdal_extent.py [-geojson] input_files')
+    print('Usage: gdal_extent.py [-geojson|-size] input_files')
     print('')
 
 
@@ -77,6 +87,9 @@ def main(argv=None):
 
         if argv[i] == '-geojson':
             func = get_rect_extent_as_geojson
+
+        if argv[i] == '-size':
+            func = get_width_height
 
         else:
             names.append(argv[i])
