@@ -1,11 +1,7 @@
-'''
-A command-line utility for getting the extent (bounds) of any raster as
-Well-Known Text (WKT), GeoJSON, or other vector formats. Can be called from
-the command line with a raster in a GDAL-supported format to produce a GeoJSON
-Polygon string:
+#!/usr/bin/env python
 
-python gdal_extent.py path/to/some/raster.tiff
-'''
+# A command-line utility for getting the extent (bounds) of any raster as
+# Well-Known Text (WKT), GeoJSON, or other vector formats.
 
 import json
 import sys
@@ -30,6 +26,23 @@ def get_min_max_extent(rast, as_string=False):
     return ext
 
 
+def get_rect_extent_as_geojson(rast):
+    '''
+    Returns the rectangular extent as GeoJSON Polygon string.
+    '''
+    ext = get_rect_extent_as_sequence(rast)
+
+    # Repeat the last coordinate (for closure)
+    ext.append(ext[0])
+
+    result = {
+        'coordinates': [ext],
+        'type': 'Polygon'
+    }
+
+    return json.dumps(result, sort_keys=False, indent=2)
+
+
 def get_rect_extent_as_sequence(rast):
     '''
     Returns the rectangular extent of the input raster as a sequence with
@@ -42,17 +55,48 @@ def get_rect_extent_as_sequence(rast):
     return [(c[0], c[3]), (c[2], c[3]), (c[2], c[1]), (c[0], c[1])]
 
 
+def display_usage():
+    print('Usage: gdal_extent.py [-geojson] input_files')
+    print('')
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+
+    argv = gdal.GeneralCmdLineProcessor(argv)
+    names = [] # Filenames found
+    func = get_min_max_extent # Function to call
+
+    if argv is None:
+        sys.exit(0)
+
+    # Parse command line arguments.
+    i = 1
+    while i < len(argv):
+
+        if argv[i] == '-geojson':
+            func = get_rect_extent_as_geojson
+
+        else:
+            names.append(argv[i])
+
+        i = i + 1
+
+    if len(names) == 0:
+        sys.stdout.write('No input files selected.')
+        display_usage()
+        sys.exit(1)
+
+    # Execute the function for each filename
+    for name in names:
+        ds = gdal.Open(name)
+        sys.stdout.write(func(ds, as_string=True))
+        sys.stdout.write('\n')
+        ds = None
+
+    return 0
+
+
 if __name__ == '__main__':
-    ds = gdal.Open(sys.argv[1])
-    ext = get_rect_extent_as_sequence(ds)
-
-    # Repeat the last coordinate (for closure)
-    ext.append(ext[0])
-
-    result = {
-        'coordinates': [ext],
-        'type': 'Polygon'
-    }
-
-    print(json.dumps(result, sort_keys=False, indent=2))
-    ds = None
+    sys.exit(main())
