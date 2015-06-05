@@ -7,7 +7,7 @@ import json
 import sys
 from osgeo import gdal, ogr
 
-def get_min_max_extent(rast, as_string=False):
+def get_min_max_extent(rast):
     '''
     Returns the minimum and maximum coordinate values in the sequence expected
     by, e.g., the `-te` switch in various GDAL utiltiies:
@@ -18,15 +18,10 @@ def get_min_max_extent(rast, as_string=False):
     ysize = rast.RasterYSize # Size in the y-direction
     xr = abs(gt[1]) # Resolution in the x-direction
     yr = abs(gt[-1]) # Resolution in the y-direction
-    ext = [gt[0], gt[3] - (ysize * yr), gt[0] + (xsize * xr), gt[3]]
-
-    if as_string:
-        return ' '.join(map(str, ext))
-
-    return ext
+    return [gt[0], gt[3] - (ysize * yr), gt[0] + (xsize * xr), gt[3]]
 
 
-def get_rect_extent_as_geojson(rast):
+def get_rect_extent_as_geojson(rast, as_string=False):
     '''
     Returns the rectangular extent as GeoJSON Polygon string.
     '''
@@ -40,7 +35,10 @@ def get_rect_extent_as_geojson(rast):
         'type': 'Polygon'
     }
 
-    return json.dumps(result, sort_keys=False, indent=2)
+    if as_string:
+        return json.dumps(result, sort_keys=False, indent=2)
+
+    return result
 
 
 def get_rect_extent_as_sequence(rast):
@@ -55,18 +53,19 @@ def get_rect_extent_as_sequence(rast):
     return [(c[0], c[3]), (c[2], c[3]), (c[2], c[1]), (c[0], c[1])]
 
 
-def get_width_height(rast, as_string=False):
+def get_width_height(rast):
     '''
-    Returns the width and height of the raster, optionally as a string.
+    Returns the width and height of the raster.
     '''
-    if as_string:
-        return ' '.join(map(str, (rast.RasterXSize, rast.RasterYSize)))
-
     return (rast.RasterXSize, rast.RasterYSize)
 
 
+def stringify(sequence, sep=' '):
+    return ' '.join(map(str, sequence))
+
+
 def display_usage():
-    print('Usage: gdal_extent.py [-geojson|-size] input_files')
+    print('Usage: gdal_extent.py [-geojson|-size] [-i indentation] input_files')
     print('')
 
 
@@ -75,8 +74,10 @@ def main(argv=None):
         argv = sys.argv
 
     argv = gdal.GeneralCmdLineProcessor(argv)
-    names = [] # Filenames found
     func = get_min_max_extent # Function to call
+    indent = None # Indentation level
+    json_out = False # Output is JSON
+    names = [] # Filenames found
 
     if argv is None:
         sys.exit(0)
@@ -85,16 +86,21 @@ def main(argv=None):
     i = 1
     while i < len(argv):
 
-        if argv[i] == '-geojson':
+        if argv[i] == '-i':
+            indent = int(argv[i + 1])
+            i += 1
+
+        elif argv[i] == '-geojson':
+            json_out = True
             func = get_rect_extent_as_geojson
 
-        if argv[i] == '-size':
+        elif argv[i] == '-size':
             func = get_width_height
 
         else:
             names.append(argv[i])
 
-        i = i + 1
+        i += 1
 
     if len(names) == 0:
         sys.stdout.write('No input files selected.')
@@ -104,7 +110,14 @@ def main(argv=None):
     # Execute the function for each filename
     for name in names:
         ds = gdal.Open(name)
-        sys.stdout.write(func(ds, as_string=True))
+
+        if json_out:
+            sys.stdout.write(json.dumps(func(ds), sort_keys=False,
+                indent=indent))
+
+        else:
+            sys.stdout.write(stringify(func(ds)))
+
         sys.stdout.write('\n')
         ds = None
 
