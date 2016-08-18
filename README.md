@@ -15,14 +15,14 @@ $ ./gdal_extent.py Wayne_county.tiff
 To get the width/height of a raster:
 
 ```sh
-$ ./gdal_extent.py -size Wayne_county.tiff
+$ ./gdal_extent.py --size Wayne_county.tiff
 1875 1551
 ```
 
 To get a GeoJSON Polygon for the rectangular extent as a string, with 2 spaces for indentation:
 
 ```sh
-$ ./gdal_extent.py -geojson -i 2 Wayne_county.tiff
+$ ./gdal_extent.py --extent --as-json -i 2 Wayne_county.tiff
 {
   "coordinates": [
     [
